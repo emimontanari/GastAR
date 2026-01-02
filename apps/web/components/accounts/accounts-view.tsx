@@ -1,47 +1,68 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { MainHeader } from "@/components/main-header"
-import { MobileNav } from "@/components/mobile-nav"
-import { AccountCard } from "@/components/accounts/account-card"
-import { AccountTransactionsTable } from "@/components/accounts/account-transactions-table"
-import { NewAccountModal } from "@/components/accounts/new-account-modal"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { Search, Plus, ChevronLeft, ChevronRight, ArrowRight, CreditCard, Clock } from "lucide-react"
-import type { Account, Transaction } from "@/lib/types"
-import Image from "next/image"
+import { useState } from "react";
+import { MainHeader } from "@/components/main-header";
+import { MobileNav } from "@/components/mobile-nav";
+import { AccountCard } from "@/components/accounts/account-card";
+import { AccountTransactionsTable } from "@/components/accounts/account-transactions-table";
+import { NewAccountModal } from "@/components/accounts/new-account-modal";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import {
+  Search,
+  ArrowRight,
+  CreditCard,
+  Clock,
+  Plus,
+} from "lucide-react";
+import { IconPlus } from "@tabler/icons-react";
+import type { Account, Transaction } from "@/lib/types";
+import Image from "next/image";
+import {
+  ButtonGroup,
+  ButtonGroupSeparator,
+} from "@/components/ui/button-group";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@/components/ui/carousel";
 
 interface AccountsViewProps {
-  accounts: Account[]
-  transactions: Transaction[]
+  accounts: Account[];
+  transactions: Transaction[];
 }
 
 export function AccountsView({ accounts, transactions }: AccountsViewProps) {
-  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null)
-  const [searchQuery, setSearchQuery] = useState("")
-  const [isNewAccountOpen, setIsNewAccountOpen] = useState(false)
-  const [carouselIndex, setCarouselIndex] = useState(0)
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(
+    null,
+  );
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isNewAccountOpen, setIsNewAccountOpen] = useState(false);
 
-  const filteredAccounts = accounts.filter((account) => account.name.toLowerCase().includes(searchQuery.toLowerCase()))
+  const filteredAccounts = accounts.filter((account) =>
+    account.name.toLowerCase().includes(searchQuery.toLowerCase()),
+  );
 
-  const selectedAccount = selectedAccountId ? accounts.find((a) => a.id === selectedAccountId) : null
+  const selectedAccount = selectedAccountId
+    ? accounts.find((a) => a.id === selectedAccountId)
+    : null;
 
   const selectedAccountTransactions = selectedAccountId
     ? transactions.filter((t) => t.account_id === selectedAccountId)
-    : []
-
-  const visibleAccounts = filteredAccounts.slice(carouselIndex, carouselIndex + 4)
-
-  const canScrollLeft = carouselIndex > 0
-  const canScrollRight = carouselIndex + 4 < filteredAccounts.length
+    : [];
 
   const renderSelectedAccountBadge = () => {
-    if (!selectedAccount) return null
+    if (!selectedAccount) return null;
 
     return (
-      <Badge variant="secondary" className="gap-2 bg-secondary/80 text-foreground font-normal px-3 py-1.5">
+      <Badge
+        variant="secondary"
+        className="gap-2 bg-secondary/80 text-foreground font-normal px-3 py-1.5"
+      >
         {selectedAccount.icon && selectedAccount.icon.startsWith("http") ? (
           <Image
             src={selectedAccount.icon || "/placeholder.svg"}
@@ -55,8 +76,8 @@ export function AccountsView({ accounts, transactions }: AccountsViewProps) {
         ) : null}
         {selectedAccount.name}
       </Badge>
-    )
-  }
+    );
+  };
 
   const EmptyState = () => (
     <div className="rounded-xl border border-border bg-card/50 p-8">
@@ -65,7 +86,9 @@ export function AccountsView({ accounts, transactions }: AccountsViewProps) {
           <CreditCard className="h-6 w-6 text-muted-foreground" />
         </div>
         <div className="text-center">
-          <h3 className="text-xl font-semibold text-foreground">Aún no tienes cuentas</h3>
+          <h3 className="text-xl font-semibold text-foreground">
+            Aún no tienes cuentas
+          </h3>
           <p className="mt-1 text-sm text-muted-foreground">
             Crea tu primera cuenta para empezar a registrar tus movimientos
           </p>
@@ -79,7 +102,7 @@ export function AccountsView({ accounts, transactions }: AccountsViewProps) {
         </Button>
       </div>
     </div>
-  )
+  );
 
   return (
     <div className="flex h-full flex-col">
@@ -91,7 +114,8 @@ export function AccountsView({ accounts, transactions }: AccountsViewProps) {
         <div className="mb-6 rounded-lg bg-gradient-to-r from-primary/20 via-primary/10 to-transparent px-4 py-3">
           <p className="text-sm text-foreground flex items-center gap-2">
             <span className="text-primary">✨</span>
-            Usa Gasti a otro nivel, hazte Pro <ArrowRight className="ml-1 inline h-4 w-4 text-primary" />
+            Usa Gasti a otro nivel, hazte Pro{" "}
+            <ArrowRight className="ml-1 inline h-4 w-4 text-primary" />
           </p>
         </div>
 
@@ -106,17 +130,29 @@ export function AccountsView({ accounts, transactions }: AccountsViewProps) {
               className="bg-secondary/50 border-border pl-9"
             />
           </div>
-          <Button variant="secondary" className="bg-secondary text-foreground hover:bg-secondary/80 gap-2">
+          <Button
+            variant="secondary"
+            className="bg-secondary text-foreground hover:bg-secondary/80 gap-2"
+          >
             <span className="text-primary">🏷️</span>
             GasTag
           </Button>
-          <Button
-            variant="ghost"
-            className="text-primary hover:bg-primary/10"
-            onClick={() => setIsNewAccountOpen(true)}
-          >
-            Nueva cuenta
-          </Button>
+          <ButtonGroup>
+            <Button
+              size="icon"
+              variant="secondary"
+              onClick={() => setIsNewAccountOpen(true)}
+            >
+              <IconPlus />
+            </Button>
+            <ButtonGroupSeparator />
+            <Button
+              variant="secondary"
+              onClick={() => setIsNewAccountOpen(true)}
+            >
+              Nueva cuenta
+            </Button>
+          </ButtonGroup>
         </div>
 
         {/* Accounts Section */}
@@ -124,38 +160,31 @@ export function AccountsView({ accounts, transactions }: AccountsViewProps) {
           {filteredAccounts.length === 0 ? (
             <EmptyState />
           ) : (
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                disabled={!canScrollLeft}
-                onClick={() => setCarouselIndex((i) => Math.max(0, i - 1))}
-                className="shrink-0"
-              >
-                <ChevronLeft className="h-5 w-5" />
-              </Button>
-
-              <div className="flex flex-1 gap-4 overflow-hidden">
-                {visibleAccounts.map((account) => (
-                  <AccountCard
-                    key={account.id}
-                    account={account}
-                    isSelected={selectedAccountId === account.id}
-                    onClick={() => setSelectedAccountId(selectedAccountId === account.id ? null : account.id)}
-                  />
+            <Carousel
+              opts={{
+                align: "start",
+                loop: false,
+              }}
+              className="w-full px-12"
+            >
+              <CarouselContent className="-ml-4">
+                {filteredAccounts.map((account) => (
+                  <CarouselItem key={account.id} className="pl-4 basis-auto">
+                    <AccountCard
+                      account={account}
+                      isSelected={selectedAccountId === account.id}
+                      onClick={() =>
+                        setSelectedAccountId(
+                          selectedAccountId === account.id ? null : account.id,
+                        )
+                      }
+                    />
+                  </CarouselItem>
                 ))}
-              </div>
-
-              <Button
-                variant="ghost"
-                size="icon"
-                disabled={!canScrollRight}
-                onClick={() => setCarouselIndex((i) => Math.min(filteredAccounts.length - 4, i + 1))}
-                className="shrink-0"
-              >
-                <ChevronRight className="h-5 w-5" />
-              </Button>
-            </div>
+              </CarouselContent>
+              <CarouselPrevious className="left-0" />
+              <CarouselNext className="right-0" />
+            </Carousel>
           )}
         </div>
 
@@ -176,7 +205,10 @@ export function AccountsView({ accounts, transactions }: AccountsViewProps) {
         </div>
       </div>
 
-      <NewAccountModal open={isNewAccountOpen} onOpenChange={setIsNewAccountOpen} />
+      <NewAccountModal
+        open={isNewAccountOpen}
+        onOpenChange={setIsNewAccountOpen}
+      />
     </div>
-  )
+  );
 }

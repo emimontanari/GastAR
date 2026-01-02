@@ -42,6 +42,9 @@ export interface Transaction {
   tags?: string[]
   created_at: string
   updated_at: string
+  // Direct category fields (denormalized)
+  category_name?: string
+  category_icon?: string
   // Joined fields
   category?: Category
   account?: Account
