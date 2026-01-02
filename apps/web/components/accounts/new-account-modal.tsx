@@ -1,23 +1,41 @@
-"use client"
+"use client";
 
-import type React from "react"
-import { useState } from "react"
-import { createClient } from "@/lib/supabase/client"
-import { useRouter } from "next/navigation"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Loader2, ChevronDown, Search, ImageIcon, Smile } from "lucide-react"
-import { cn } from "@/lib/utils"
+import type React from "react";
+import { useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { useRouter } from "next/navigation";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { Loader2, ChevronDown, Search, ImageIcon, Smile } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface NewAccountModalProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }
 
 // Bank icons from Gasti CDN
@@ -182,7 +200,7 @@ const BANK_ICONS = [
     name: "Cocos Capital",
     url: "https://xfagddrtglhdusqwxghx.supabase.co/storage/v1/object/public/cdn//banks/cocos.svg",
   },
-]
+];
 
 // Common emojis for accounts
 const ACCOUNT_EMOJIS = [
@@ -216,43 +234,155 @@ const ACCOUNT_EMOJIS = [
   "👗",
   "💄",
   "🏋️",
-]
+];
 
 export function NewAccountModal({ open, onOpenChange }: NewAccountModalProps) {
-  const router = useRouter()
-  const [isLoading, setIsLoading] = useState(false)
-  const [name, setName] = useState("")
-  const [accountType, setAccountType] = useState("")
-  const [currency, setCurrency] = useState("ARS-OFI")
-  const [initialBalance, setInitialBalance] = useState("")
-  const [accountNumber, setAccountNumber] = useState("")
-  const [createInitialTransaction, setCreateInitialTransaction] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [iconSearch, setIconSearch] = useState("")
-  const [selectedIcon, setSelectedIcon] = useState<{ type: "bank" | "emoji"; value: string; url?: string } | null>(null)
-  const [iconPopoverOpen, setIconPopoverOpen] = useState(false)
+  const router = useRouter();
+  const [isLoading, setIsLoading] = useState(false);
+  const [name, setName] = useState("");
+  const [accountType, setAccountType] = useState("");
+  const [currency, setCurrency] = useState("ARS-OFI");
+  const [initialBalance, setInitialBalance] = useState("");
+  const [displayBalance, setDisplayBalance] = useState("");
+  const [accountNumber, setAccountNumber] = useState("");
+  const [createInitialTransaction, setCreateInitialTransaction] =
+    useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [nameError, setNameError] = useState<string>("");
+  const [balanceError, setBalanceError] = useState<string>("");
+  const [iconSearch, setIconSearch] = useState("");
+  const [selectedIcon, setSelectedIcon] = useState<{
+    type: "bank" | "emoji";
+    value: string;
+    url?: string;
+  } | null>(null);
+  const [iconPopoverOpen, setIconPopoverOpen] = useState(false);
 
-  const filteredBanks = BANK_ICONS.filter((bank) => bank.name.toLowerCase().includes(iconSearch.toLowerCase()))
+  const filteredBanks = BANK_ICONS.filter((bank) =>
+    bank.name.toLowerCase().includes(iconSearch.toLowerCase()),
+  );
 
-  const filteredEmojis = ACCOUNT_EMOJIS.filter((emoji) => iconSearch === "" || emoji.includes(iconSearch))
+  const filteredEmojis = ACCOUNT_EMOJIS.filter(
+    (emoji) => iconSearch === "" || emoji.includes(iconSearch),
+  );
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
-    setError(null)
+  const formatBalance = (value: string) => {
+    // Remove all non-digit characters except minus sign
+    const cleanValue = value.replace(/[^\d-]/g, "");
 
-    const supabase = createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      setError("No estás autenticado")
-      setIsLoading(false)
-      return
+    if (cleanValue === "" || cleanValue === "-") {
+      return cleanValue;
     }
 
-    const parsedCurrency = currency.split("-")[0] // Extract ARS or USD from ARS-OFI
+    // Parse the number
+    const number = Number.parseFloat(cleanValue);
+    if (Number.isNaN(number)) {
+      return "";
+    }
+
+    // Format with thousand separators
+    const isNegative = number < 0;
+    const absoluteValue = Math.abs(number);
+    const formatted = new Intl.NumberFormat("de-DE").format(absoluteValue);
+
+    return isNegative ? `-${formatted}` : formatted;
+  };
+
+  const handleBalanceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+
+    // Allow empty, minus sign, and numbers
+    if (value === "" || value === "-") {
+      setInitialBalance(value);
+      setDisplayBalance(value);
+      return;
+    }
+
+    // Remove all non-digit characters except minus sign
+    const cleanValue = value.replace(/[^\d-]/g, "");
+    const number = Number.parseFloat(cleanValue);
+
+    if (!Number.isNaN(number)) {
+      setInitialBalance(cleanValue);
+      setDisplayBalance(formatBalance(cleanValue));
+    }
+  };
+
+  const getBalanceColor = () => {
+    if (!initialBalance || initialBalance === "-") return "";
+    const number = Number.parseFloat(initialBalance);
+    if (Number.isNaN(number) || number === 0) return "";
+    return number > 0 ? "text-[#4adec0]" : "text-[#ef575c]";
+  };
+
+  const validateName = (value: string): boolean => {
+    if (!value.trim()) {
+      setNameError("El nombre de la cuenta es obligatorio");
+      return false;
+    }
+    if (value.trim().length < 2) {
+      setNameError("El nombre debe tener al menos 2 caracteres");
+      return false;
+    }
+    if (value.trim().length > 50) {
+      setNameError("El nombre no puede exceder 50 caracteres");
+      return false;
+    }
+    setNameError("");
+    return true;
+  };
+
+  const validateBalance = (value: string): boolean => {
+    if (value && value !== "-") {
+      const number = Number.parseFloat(value);
+      if (Number.isNaN(number)) {
+        setBalanceError("Ingresa un monto válido");
+        return false;
+      }
+    }
+    setBalanceError("");
+    return true;
+  };
+
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setName(value);
+    if (nameError) validateName(value);
+  };
+
+  const handleBalanceBlur = () => {
+    validateBalance(initialBalance);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    // Validate all fields
+    const isNameValid = validateName(name);
+    const isBalanceValid = validateBalance(initialBalance);
+
+    if (!isNameValid || !isBalanceValid) {
+      return;
+    }
+
+    setIsLoading(true);
+
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      setError("No estás autenticado");
+      toast.error("Error de autenticación", {
+        description: "No se pudo verificar tu sesión. Por favor, inicia sesión nuevamente."
+      });
+      setIsLoading(false);
+      return;
+    }
+
+    const parsedCurrency = currency.split("-")[0]; // Extract ARS or USD from ARS-OFI
 
     const { error: insertError, data: newAccount } = await supabase
       .from("accounts")
@@ -262,19 +392,31 @@ export function NewAccountModal({ open, onOpenChange }: NewAccountModalProps) {
         type: accountType || "bank",
         currency: parsedCurrency,
         balance: initialBalance ? Number.parseFloat(initialBalance) : 0,
-        icon: selectedIcon ? (selectedIcon.type === "bank" ? selectedIcon.url : selectedIcon.value) : null,
+        icon: selectedIcon
+          ? selectedIcon.type === "bank"
+            ? selectedIcon.url
+            : selectedIcon.value
+          : null,
       })
       .select()
-      .single()
+      .single();
 
     if (insertError) {
-      setError(insertError.message)
-      setIsLoading(false)
-      return
+      setError(insertError.message);
+      toast.error("Error al crear cuenta", {
+        description: "No se pudo crear la cuenta. Por favor, intenta nuevamente."
+      });
+      setIsLoading(false);
+      return;
     }
 
     // Create initial balance transaction if requested
-    if (createInitialTransaction && initialBalance && Number.parseFloat(initialBalance) !== 0 && newAccount) {
+    if (
+      createInitialTransaction &&
+      initialBalance &&
+      Number.parseFloat(initialBalance) !== 0 &&
+      newAccount
+    ) {
       await supabase.from("transactions").insert({
         user_id: user.id,
         account_id: newAccount.id,
@@ -284,37 +426,49 @@ export function NewAccountModal({ open, onOpenChange }: NewAccountModalProps) {
         currency: parsedCurrency,
         date: new Date().toISOString().split("T")[0],
         origin: "manual",
-      })
+      });
     }
 
-    setIsLoading(false)
-    onOpenChange(false)
-    resetForm()
-    router.refresh()
-  }
+    setIsLoading(false);
+    toast.success("Cuenta creada exitosamente", {
+      description: `La cuenta "${name}" ha sido creada correctamente.`
+    });
+    onOpenChange(false);
+    resetForm();
+    router.refresh();
+  };
 
   const resetForm = () => {
-    setName("")
-    setAccountType("")
-    setCurrency("ARS-OFI")
-    setInitialBalance("")
-    setAccountNumber("")
-    setCreateInitialTransaction(false)
-    setSelectedIcon(null)
-    setIconSearch("")
-    setError(null)
-  }
+    setName("");
+    setAccountType("");
+    setCurrency("ARS-OFI");
+    setInitialBalance("");
+    setDisplayBalance("");
+    setAccountNumber("");
+    setCreateInitialTransaction(false);
+    setSelectedIcon(null);
+    setIconSearch("");
+    setError(null);
+    setNameError("");
+    setBalanceError("");
+  };
 
-  const handleSelectIcon = (type: "bank" | "emoji", value: string, url?: string) => {
-    setSelectedIcon({ type, value, url })
-    setIconPopoverOpen(false)
-  }
+  const handleSelectIcon = (
+    type: "bank" | "emoji",
+    value: string,
+    url?: string,
+  ) => {
+    setSelectedIcon({ type, value, url });
+    setIconPopoverOpen(false);
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="bg-card border-border sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-foreground text-xl">Nueva cuenta</DialogTitle>
+          <DialogTitle className="text-foreground text-xl">
+            Nueva cuenta
+          </DialogTitle>
           <DialogDescription className="text-muted-foreground">
             Crea una nueva cuenta para organizar tus transacciones
           </DialogDescription>
@@ -338,7 +492,11 @@ export function NewAccountModal({ open, onOpenChange }: NewAccountModalProps) {
                     {selectedIcon ? (
                       selectedIcon.type === "bank" ? (
                         <div className="w-6 h-6 rounded-full bg-background flex items-center justify-center">
-                          <img src={selectedIcon.url || "/placeholder.svg"} alt="" className="w-5 h-5" />
+                          <img
+                            src={selectedIcon.url || "/placeholder.svg"}
+                            alt=""
+                            className="w-5 h-5"
+                          />
                         </div>
                       ) : (
                         <span className="text-xl">{selectedIcon.value}</span>
@@ -355,7 +513,10 @@ export function NewAccountModal({ open, onOpenChange }: NewAccountModalProps) {
                   <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-[400px] p-0 bg-card border-border" align="start">
+              <PopoverContent
+                className="w-[400px] p-0 bg-card border-border"
+                align="start"
+              >
                 <div className="p-3 border-b border-border">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -384,47 +545,61 @@ export function NewAccountModal({ open, onOpenChange }: NewAccountModalProps) {
                       Emojis
                     </TabsTrigger>
                   </TabsList>
-                  <TabsContent value="icons" className="p-3 max-h-[300px] overflow-y-auto">
-                    <h3 className="text-sm font-medium text-muted-foreground mb-3">Bancos</h3>
-                    <div className="grid grid-cols-5 gap-2">
-                      {filteredBanks.map((bank) => (
-                        <button
-                          key={bank.id}
-                          type="button"
-                          onClick={() => handleSelectIcon("bank", bank.name, bank.url)}
-                          className={cn(
-                            "w-12 h-12 rounded-lg flex items-center justify-center hover:bg-secondary transition-colors",
-                            selectedIcon?.url === bank.url && "ring-2 ring-primary",
-                          )}
-                        >
-                          <div className="w-8 h-8 rounded-full bg-background flex items-center justify-center p-1">
-                            <img
-                              src={bank.url || "/placeholder.svg"}
-                              alt={bank.name}
-                              className="w-full h-full object-contain"
-                            />
-                          </div>
-                        </button>
-                      ))}
-                    </div>
+                  <TabsContent value="icons" className="p-3">
+                    <h3 className="text-sm font-medium text-muted-foreground mb-3">
+                      Bancos
+                    </h3>
+                    <ScrollArea className="h-[300px] w-full rounded-md">
+                      <div className="grid grid-cols-5 gap-2 pr-4">
+                        {filteredBanks.map((bank) => (
+                          <button
+                            key={bank.id}
+                            type="button"
+                            onClick={() =>
+                              handleSelectIcon("bank", bank.name, bank.url)
+                            }
+                            className={cn(
+                              "w-12 h-12 rounded-lg flex items-center justify-center hover:bg-secondary transition-colors",
+                              selectedIcon?.url === bank.url &&
+                                "ring-2 ring-primary",
+                            )}
+                          >
+                            <div className="w-8 h-8 rounded-full bg-background flex items-center justify-center p-1">
+                              <img
+                                src={bank.url || "/placeholder.svg"}
+                                alt={bank.name}
+                                className="w-full h-full object-contain"
+                              />
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                      <ScrollBar orientation="vertical" />
+                    </ScrollArea>
                   </TabsContent>
-                  <TabsContent value="emojis" className="p-3 max-h-[300px] overflow-y-auto">
-                    <h3 className="text-sm font-medium text-muted-foreground mb-3">Emojis</h3>
-                    <div className="grid grid-cols-6 gap-2">
-                      {filteredEmojis.map((emoji) => (
-                        <button
-                          key={emoji}
-                          type="button"
-                          onClick={() => handleSelectIcon("emoji", emoji)}
-                          className={cn(
-                            "w-10 h-10 rounded-lg flex items-center justify-center hover:bg-secondary transition-colors text-xl",
-                            selectedIcon?.value === emoji && "ring-2 ring-primary",
-                          )}
-                        >
-                          {emoji}
-                        </button>
-                      ))}
-                    </div>
+                  <TabsContent value="emojis" className="p-3">
+                    <h3 className="text-sm font-medium text-muted-foreground mb-3">
+                      Emojis
+                    </h3>
+                    <ScrollArea className="h-[300px] w-full rounded-md">
+                      <div className="grid grid-cols-6 gap-2 pr-4">
+                        {filteredEmojis.map((emoji) => (
+                          <button
+                            key={emoji}
+                            type="button"
+                            onClick={() => handleSelectIcon("emoji", emoji)}
+                            className={cn(
+                              "w-10 h-10 rounded-lg flex items-center justify-center hover:bg-secondary transition-colors text-xl",
+                              selectedIcon?.value === emoji &&
+                                "ring-2 ring-primary",
+                            )}
+                          >
+                            {emoji}
+                          </button>
+                        ))}
+                      </div>
+                      <ScrollBar orientation="vertical" />
+                    </ScrollArea>
                   </TabsContent>
                 </Tabs>
               </PopoverContent>
@@ -433,27 +608,42 @@ export function NewAccountModal({ open, onOpenChange }: NewAccountModalProps) {
 
           {/* Account Name */}
           <div className="flex flex-col gap-2">
-            <Label className="text-muted-foreground">Nombre de la cuenta</Label>
+            <Label className="text-muted-foreground">
+              Nombre de la cuenta <span className="text-destructive">*</span>
+            </Label>
             <Input
               placeholder="Ej: Tarjeta de crédito principal"
               value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-              className="bg-secondary border-border h-11"
+              onChange={handleNameChange}
+              onBlur={() => validateName(name)}
+              className={cn(
+                "bg-secondary border-border h-11",
+                nameError && "border-destructive focus-visible:ring-destructive"
+              )}
             />
+            {nameError && (
+              <p className="text-sm text-destructive">{nameError}</p>
+            )}
           </div>
 
           {/* Initial Balance */}
           <div className="flex flex-col gap-2">
             <Label className="text-muted-foreground">Balance inicial</Label>
             <Input
-              type="number"
-              step="0.01"
+              type="text"
               placeholder="0"
-              value={initialBalance}
-              onChange={(e) => setInitialBalance(e.target.value)}
-              className="bg-secondary border-border h-11"
+              value={displayBalance}
+              onChange={handleBalanceChange}
+              onBlur={handleBalanceBlur}
+              className={cn(
+                "bg-secondary border-border h-11 font-semibold",
+                getBalanceColor(),
+                balanceError && "border-destructive focus-visible:ring-destructive"
+              )}
             />
+            {balanceError && (
+              <p className="text-sm text-destructive">{balanceError}</p>
+            )}
           </div>
 
           {/* Create Initial Transaction Checkbox */}
@@ -461,7 +651,9 @@ export function NewAccountModal({ open, onOpenChange }: NewAccountModalProps) {
             <Checkbox
               id="createTransaction"
               checked={createInitialTransaction}
-              onCheckedChange={(checked) => setCreateInitialTransaction(checked as boolean)}
+              onCheckedChange={(checked) =>
+                setCreateInitialTransaction(checked as boolean)
+              }
               className="border-muted-foreground data-[state=checked]:bg-primary data-[state=checked]:border-primary"
             />
             <Label
@@ -481,9 +673,7 @@ export function NewAccountModal({ open, onOpenChange }: NewAccountModalProps) {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="ARS-OFI">🇦🇷 ARS-OFI</SelectItem>
-                <SelectItem value="ARS-MEP">🇦🇷 ARS-MEP</SelectItem>
-                <SelectItem value="ARS-BLUE">🇦🇷 ARS-BLUE</SelectItem>
+                <SelectItem value="ARS-OFI">🇦🇷 ARS</SelectItem>
                 <SelectItem value="USD">🇺🇸 USD</SelectItem>
               </SelectContent>
             </Select>
@@ -491,7 +681,9 @@ export function NewAccountModal({ open, onOpenChange }: NewAccountModalProps) {
 
           {/* Account Number (Optional) */}
           <div className="flex flex-col gap-2">
-            <Label className="text-muted-foreground">Número de cuenta (opcional)</Label>
+            <Label className="text-muted-foreground">
+              Número de cuenta (opcional)
+            </Label>
             <Input
               placeholder="Ej: **** 1234"
               value={accountNumber}
@@ -502,7 +694,9 @@ export function NewAccountModal({ open, onOpenChange }: NewAccountModalProps) {
 
           {/* Account Type (Optional) */}
           <div className="flex flex-col gap-2">
-            <Label className="text-muted-foreground">Tipo de cuenta (opcional)</Label>
+            <Label className="text-muted-foreground">
+              Tipo de cuenta (opcional)
+            </Label>
             <Input
               placeholder="Ej: Tarjeta de crédito, Cuenta corriente"
               value={accountType}
@@ -541,5 +735,5 @@ export function NewAccountModal({ open, onOpenChange }: NewAccountModalProps) {
         </form>
       </DialogContent>
     </Dialog>
-  )
+  );
 }
